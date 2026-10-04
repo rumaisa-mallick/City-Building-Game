@@ -1197,6 +1197,22 @@ input[type='range']::-webkit-slider-thumb {
 .sh-tip b { color: var(--text); }
 
 /* resell mode: the map itself invites a click */
+/* Direction cursor: the system arrow is suppressed and DirectionCursor.ts
+   stands in a pixel arrowhead that turns to face the travel direction.
+   Controls re-declare their native cursor so affordances stay readable. */
+#app { cursor: none; }
+input[type='range'] { cursor: pointer; }
+input[type='text'] { cursor: text; }
+.dir-cursor {
+  position: fixed; left: 0; top: 0; z-index: 1000;
+  width: 20px; height: 20px;
+  pointer-events: none; opacity: 0;
+  transform-origin: 20px 10px;
+  filter: drop-shadow(1px 0 0 #07090e) drop-shadow(-1px 0 0 #07090e)
+    drop-shadow(0 1px 0 #07090e) drop-shadow(0 -1px 0 #07090e);
+}
+.dir-cursor.on { opacity: 1; }
+
 body.sell-mode #app { cursor: crosshair; }
 
 /* =======================================================================

@@ -13,6 +13,7 @@ import { saveCity, loadCity } from '../systems/SaveSystem';
 import type { Person } from '../entities/Person';
 import { MarketSystem, LESSONS } from '../systems/MarketSystem';
 import { ico } from './icons';
+import { attachDirectionCursor } from './DirectionCursor';
 import type { TradeResult } from '../systems/MarketSystem';
 
 /** localStorage flag: the tip toast after dismiss only greets a brand new player */
@@ -226,6 +227,7 @@ export class UISystem {
     this.weather = weather;
     this.market = market;
     this.buildUI();
+    attachDirectionCursor();
 
     engine.on('cityUpdated', ({ stats }) => {
       this.renderStats(stats);
