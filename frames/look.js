@@ -121,12 +121,6 @@ const shots = [];
   await ev(() => window.game.ui.togglePhoto(false));
   await waitFrames(2);
 
-  // direction cursor: two moves so the arrowhead has a heading to turn toward
-  await page.mouse.move(430, 420);
-  await page.mouse.move(620, 500);
-  await waitFrames(14);
-  await shoot('07_cursor');
-
   console.log('PAGE ERRORS ' + errs.length + ' ' + JSON.stringify(errs.slice(0, 4)));
   console.log('---');
   console.log('LOOK SHOTS ' + shots.length + ': ' + shots.join(' '));
