@@ -38,6 +38,11 @@ export class InputManager {
   onDigitPressed: ((n: number) => void) | null = null;
   /** Shift + left-drag: continuous mouse rotation of the element being placed (dx in px) */
   onRotateDelta: ((dx: number) => void) | null = null;
+  /** Screen-edge panning: pointer in NDC plus its gate — tracked at window
+   *  level because HUD panels swallow the canvas's own pointermove */
+  edgeX = 0;
+  edgeY = 0;
+  edgeActive = false;
 
   constructor(target: HTMLElement, camera: THREE.Camera) {
     this.target = target;
@@ -99,6 +104,33 @@ export class InputManager {
     this.target.addEventListener('pointerleave', () => {
       this.mouseButtons.clear();
       this.rotating = false;
+    });
+
+    // Edge-pan state follows the pointer at window level: over HUD panels the
+    // canvas sees no pointermove, but the view still has to know the pointer
+    // is near an edge. Only the city itself and the edge-hugging bars count —
+    // over controls and panels the view must hold still.
+    window.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      this.edgeX = (e.clientX / window.innerWidth) * 2 - 1;
+      this.edgeY = -(e.clientY / window.innerHeight) * 2 + 1;
+      const el = e.target;
+      if (!(el instanceof Element)) {
+        this.edgeActive = false;
+        return;
+      }
+      const onControl = el.closest('button, input, select, textarea, label, a[href]');
+      this.edgeActive =
+        !onControl && (el === this.target || !!el.closest('.hud-top, .help'));
+    });
+
+    // leaving the window freezes the pointer at the edge it exited through —
+    // without clearing the gate the camera would drift on its own
+    window.addEventListener('blur', () => {
+      this.edgeActive = false;
+    });
+    document.documentElement.addEventListener('mouseleave', () => {
+      this.edgeActive = false;
     });
   }
 

@@ -4,7 +4,7 @@ import { TOTAL } from '../types';
 
 /**
  * Orbit + pan + zoom camera with smooth damping.
- * Right-drag = orbit, Shift+right-drag = pan, Q/E = rotate, wheel = zoom, WASD = pan.
+ * Right-drag = orbit, Shift+right-drag = pan, Q/E = rotate, wheel = zoom, WASD or screen edge = pan.
  */
 export class CameraSystem {
   private camera: THREE.PerspectiveCamera;
@@ -21,6 +21,7 @@ export class CameraSystem {
   private desiredTarget = new THREE.Vector3();
   private rotateSpeed = 2.4;
   private panSpeed = 12;
+  private edgeZone = 0.94; // pointer NDC past this counts as pushing the edge
   private zoomSpeed = 0.1;
   private smooth = 8;
 
@@ -61,15 +62,32 @@ export class CameraSystem {
       this.spherical.radius *= 1 + i.wheelDelta * this.zoomSpeed * 0.05;
     }
 
-    // Pan with WASD (screen-aligned) or right-drag
+    // Pan with WASD, screen edges or right-drag (screen-aligned)
     const pan = new THREE.Vector3();
     if (i.isKeyDown('KeyW')) pan.z -= 1;
     if (i.isKeyDown('KeyS')) pan.z += 1;
     if (i.isKeyDown('KeyA')) pan.x -= 1;
     if (i.isKeyDown('KeyD')) pan.x += 1;
+    const fromKeys = pan.lengthSq() > 0;
+
+    // Push the pointer against a screen edge to drift that way; the ramp keeps
+    // a light touch crawling and puts a corner at full key speed
+    let edgeStrength = 0;
+    if (i.edgeActive && i.mouseButtons.size === 0) {
+      const ramp = (v: number): number => {
+        const a = Math.abs(v);
+        return a < this.edgeZone ? 0 : (Math.sign(v) * (a - this.edgeZone)) / (1 - this.edgeZone);
+      };
+      const ex = ramp(i.edgeX);
+      const ey = ramp(i.edgeY);
+      pan.x += ex;
+      pan.z -= ey; // screen up = forward, same sign as W
+      edgeStrength = Math.min(1, Math.hypot(ex, ey));
+    }
 
     if (pan.lengthSq() > 0) {
-      pan.normalize().multiplyScalar(this.panSpeed * dt);
+      const speed = (fromKeys || edgeStrength === 0 ? 1 : edgeStrength) * this.panSpeed;
+      pan.normalize().multiplyScalar(speed * dt);
       // convert pan to camera-relative
       const forward = new THREE.Vector3();
       this.camera.getWorldDirection(forward);

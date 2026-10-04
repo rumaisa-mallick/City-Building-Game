@@ -237,6 +237,27 @@ const check = (label, ok, detail) => {
   await page.screenshot({ path: OUT + 'v_hud.png', timeout: 180000 });
   console.log('SHOT v_hud');
 
+  // ----------------------------------------------------------- edge panning
+  // push the pointer into the right edge band: the camera target has to drift
+  // that way, then hold still again once it leaves the band
+  const tgt = () => ev(() => {
+    const t = window.game.cameraSystem.target;
+    return { x: t.x, z: t.z };
+  });
+  const t0 = await tgt();
+  await page.mouse.move(1439, 450); // canvas strip past the goals panel
+  await waitFrames(3);
+  const t1 = await tgt();
+  check('edge pan drifts right', t1.x - t0.x > 1, (t1.x - t0.x).toFixed(2));
+  await page.mouse.move(720, 450);
+  await waitFrames(2);
+  const t2 = await tgt();
+  await waitFrames(3);
+  const t3 = await tgt();
+  check('edge pan holds still off-edge',
+    Math.abs(t3.x - t2.x) < 0.1 && Math.abs(t3.z - t2.z) < 0.1,
+    (t3.x - t2.x).toFixed(2));
+
   check('no page errors', errs.length === 0, JSON.stringify(errs.slice(0, 4)));
   check('no external requests', ext.length === 0, JSON.stringify(ext.slice(0, 4)));
 
