@@ -1,0 +1,1362 @@
+/* ------------------------------------------------------------------ typography
+   Pixelify Sans carries the whole UI: a pixel face, but a modern variable one
+   — the 400–700 weight axis still works, so a label and a heading are the same
+   voice at different weights instead of one weight plus a browser-faked bold.
+   Weight-as-hierarchy is inherited from the previous typeface (Bahnschrift);
+   what changed is identity: the game now looks hand-built down to the glyph
+   instead of borrowing the operating system's signage font.
+   The woff2 sits in src/fonts/ and is served from this origin, so nothing
+   crosses the network. Digits live on the face's pixel grid, so counters don't
+   jitter when they tick. Cascadia Mono stays reserved for hotkey badges so the
+   rail reads like a keyboard, not a paragraph.
+   -------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Pixelify Sans';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('./fonts/pixelify-sans-latin.woff2') format('woff2');
+}
+
+:root {
+  --font-ui: 'Pixelify Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Pixelify Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Cascadia Mono', ui-monospace, 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+
+  --panel: rgba(16, 18, 26, 0.82);
+  --panel-2: rgba(26, 30, 42, 0.85);
+  --panel-border: rgba(255, 255, 255, 0.10);
+  --hairline: rgba(255, 255, 255, 0.07);
+  /* matches the rail-panel fill so a pinned header reads as one piece */
+  --pn-head-bg: rgba(16, 18, 27, 0.97);
+  --accent: #45c776;
+  --accent-2: #2aa55e;
+  --accent-dim: rgba(69, 199, 118, 0.14);
+  --text: #e9ecf2;
+  --muted: rgba(233, 236, 242, 0.64);
+  --chip: rgba(255, 255, 255, 0.06);
+  --shadow-deep: 0 12px 28px rgba(0, 0, 0, 0.42), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  background: #0a0c12;
+  font-family: var(--font-ui);
+  line-height: 1.5;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app { position: fixed; inset: 0; }
+#app canvas { display: block; }
+
+/* Lens vignette is applied per-scene in the shader (PostFXSystem grade pass),
+   so it can change with time of day and weather — no CSS overlay needed. */
+
+#ui { position: fixed; inset: 0; pointer-events: none; z-index: 10; user-select: none; }
+#ui > * { pointer-events: auto; }
+
+button, select, input { font-family: inherit; }
+
+/* hotkey badges read as keys; every heading uses the display cut of the family */
+kbd, .tool-btn kbd, .kbd { font-family: var(--font-mono); font-weight: 600; letter-spacing: 0.01em; }
+.brand, .sec-title, .bud-title, .pn-head, .goal-title,
+.sp-brand, .sp-title, .sp-card h4, .pause-title {
+  font-family: var(--font-display);
+}
+
+/* ---------------- top bar ---------------- */
+.hud-top {
+  position: absolute; top: 0; left: 0; right: 0;
+  /* Two explicit rows, never one wrapping flex row. The old flex header packed
+     brand + 9 chips + 6 scene pills + 13 actions into 4-5 lines: 170px tall on
+     a 640px viewport (27% of the screen), with chips sliding under the rail.
+     Row 1 = status readout, row 2 = controls; each row wraps only if it must.
+     Both rows span the full width: `acts` sat in columns 2-3 only, which
+     indented the controls row by the brand's 130px on the left while it stayed
+     flush right — two different left edges in one bar reads as a near-miss
+     rather than as structure. */
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'brand stats scenes'
+    'acts  acts  acts';
+  align-items: center;
+  gap: 6px 12px;
+  padding: 7px 12px 8px;
+  background: linear-gradient(to bottom, rgba(6, 8, 13, 0.92) 0%, rgba(6, 8, 13, 0.55) 55%, rgba(6, 8, 13, 0) 100%);
+}
+
+.brand {
+  grid-area: brand;
+  color: #f4f6f9;
+  font-weight: 600; font-size: 13px; letter-spacing: 1.4px;
+  white-space: nowrap;
+}
+
+/* centred, not stretched: the census chips are two lines tall, and the wallet
+   chips beside them would otherwise stretch to match */
+.stats { grid-area: stats; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: 0; }
+.chip {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--panel-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 6px rgba(0, 0, 0, 0.35);
+  padding: 3px 7px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 500;
+  white-space: nowrap;
+}
+
+.scenes { grid-area: scenes; display: flex; gap: 4px; justify-self: end; }
+.scene-pill {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid var(--panel-border);
+  color: var(--text);
+  padding: 4px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+.scene-pill:hover { border-color: rgba(255, 255, 255, 0.3); transform: translateY(-1px); }
+.scene-pill.active {
+  background: rgba(69, 199, 118, 0.16);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* The control row is three clusters spread across its grid area rather than one
+   right-hugging clump: world controls, dashboards, session. space-between pulls
+   cluster 1 flush to the wallet chips above it and cluster 3 flush to the scene
+   pills, so the row is anchored at both ends with no dead band beside the brand.
+   A cluster wraps whole instead of tearing in half, which is why the groups —
+   not the individual buttons — are the flex items. */
+.top-actions {
+  grid-area: acts; display: flex; justify-content: space-between;
+  flex-wrap: wrap; gap: 6px; min-width: 0;
+}
+.act-grp { display: flex; gap: 5px; flex-wrap: wrap; min-width: 0; }
+.btn {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--panel-border);
+  color: var(--text);
+  padding: 5px 9px; border-radius: 7px;
+  font-size: 11.5px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s;
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+.btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+.btn:active { transform: translateY(0); box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5); }
+.btn-mini { padding: 4px 7px; border-radius: 6px; }
+
+/* Keyboard focus was invisible everywhere except the text fields: tabbing
+   across the top bar, the tool rail or a dashboard never showed where you
+   were. :focus-visible only lights for keyboard navigation, so clicking a
+   button still leaves no ring behind — the mouse and the keyboard each get
+   the signal they actually need. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------------- inline SVG icons ----------------
+   Chrome icons come from src/ui/icons.ts. They sit inline exactly where the
+   emoji used to (so no layout rule below has to change), they inherit the
+   colour of the text they belong to, and they size in em so they track the
+   label. Stroke lives here rather than on each <path> so every icon in the app
+   is guaranteed the same weight. */
+.ic {
+  display: inline-block;
+  width: 1.05em; height: 1.05em;
+  vertical-align: -0.16em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+}
+.tool-ico .ic { width: 16px; height: 16px; }
+.sec-title .ic, .bud-title .ic, .goal-title .ic, .news-title .ic,
+.map-title .ic, .stk-title .ic, .shop-title .ic, .brand .ic { margin-right: 2px; }
+
+/* ---------------- tools / elements panel ---------------- */
+.tools {
+  position: absolute; left: 14px; top: 84px; width: 228px;
+  background: rgba(16, 18, 27, 0.97);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 12px 11px 11px;
+  display: flex; flex-direction: column; gap: 11px;
+  max-height: calc(100vh - 152px);
+  overflow-y: auto;
+  box-shadow: var(--shadow-deep), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+/* top light edge on the panel */
+.tools::before {
+  content: '';
+  position: absolute; top: 0; left: 16px; right: 16px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+}
+
+/* The rail's section heads and the dashboards' .pn-lbl are the same idea —
+   a label that divides a column of things — so they are the same weight. They
+   were both sitting on --muted with a 7%-white rule, which on a dark panel
+   reads as a smudge rather than a heading. */
+.sec-title {
+  font-size: 11px; font-weight: 600; letter-spacing: 1.3px;
+  color: rgba(233, 236, 242, 0.84);
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 2px;
+}
+.sec-title::after {
+  content: '';
+  flex: 1; height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.2), transparent);
+}
+
+.tool-section { display: flex; flex-direction: column; gap: 7px; }
+
+/* single column: two columns squeezed icon + name + kbd into ~99px and
+   ellipsized every label ("B…") — full-width rows keep names readable */
+.tool-grid { display: grid; grid-template-columns: 1fr; gap: 5px; }
+.tool-btn {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  align-items: center; gap: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  padding: 6px 8px; border-radius: 8px;
+  font-size: 11.5px; font-weight: 500;
+  cursor: pointer; transition: all 0.14s;
+  text-align: left;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+.tool-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+.tool-btn:active { transform: translateY(0); box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.45); }
+.tool-btn.active,
+.tool-btn.on {
+  background: rgba(69, 199, 118, 0.15);
+  border-color: var(--accent);
+  color: #eafff2;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.tool-ico {
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  font-size: 15px; line-height: 1;
+  border-radius: 7px;
+  background: #232836;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 2px 4px rgba(0, 0, 0, 0.45);
+}
+.tool-btn.active .tool-ico,
+.tool-btn.on .tool-ico {
+  background: #173d27;
+  border-color: rgba(69, 199, 118, 0.5);
+}
+.tool-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.tool-btn kbd {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 5px; padding: 1px 5px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  color: var(--muted);
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.6);
+}
+.tool-btn.active kbd,
+.tool-btn.on kbd { color: var(--accent); border-color: rgba(69, 199, 118, 0.4); }
+.kbd-empty { opacity: 0.3; }
+
+.field-label { font-size: 12px; color: var(--muted); font-weight: 500; }
+.field {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.30);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 6px 9px;
+  font-size: 12px;
+  outline: none;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.45);
+  transition: border-color 0.15s;
+}
+.field:focus { border-color: var(--accent); }
+.field-inline { width: auto; flex: 1; }
+.field-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.field-value {
+  font-size: 12.5px; font-weight: 600; color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid rgba(69, 199, 118, 0.35);
+  border-radius: 6px; padding: 2px 9px;
+}
+.field-hint { font-size: 11.5px; color: var(--muted); font-style: italic; }
+select.field {
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239aa3b2' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  padding-right: 24px;
+  cursor: pointer;
+}
+select.field option { background: #14161e; }
+
+input[type='range'] {
+  -webkit-appearance: none; appearance: none;
+  height: 6px; border-radius: 3px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  outline: none; padding: 0;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #7dffb0, var(--accent-2));
+  cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------------- toast ---------------- */
+.toast {
+  position: absolute; top: 88px; left: 50%;
+  transform: translateX(-50%) translateY(-14px);
+  background: rgba(12, 14, 20, 0.96);
+  border: 1px solid rgba(69, 199, 118, 0.5);
+  padding: 10px 22px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 500;
+  opacity: 0; transition: all 0.25s ease;
+  pointer-events: none;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------------- help ---------------- */
+.help {
+  /* left/right + fit-content instead of the old `left: 50%` trick: that capped the
+     bar at half the viewport and packed ~190 characters into a cramped 500px block */
+  position: absolute; bottom: 14px; left: 0; right: 0;
+  width: fit-content; max-width: min(96vw, 1200px); margin: 0 auto;
+  font-size: 11px; line-height: 1.5; color: var(--muted);
+  background: rgba(8, 10, 16, 0.94);
+  border: 1px solid var(--panel-border);
+  padding: 7px 16px; border-radius: 999px;
+  white-space: normal;
+  text-align: center;
+  transition: opacity 0.12s ease;
+  text-wrap: balance; /* even line lengths instead of one packed line + a stub */
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+}
+.help b { color: var(--accent); font-weight: 600; }
+/* The three groups are divided by a hairline rather than another middle dot, so
+   the seam between "build" and "camera" is a line you see instead of one more
+   character you have to count. The label stays dimmer than the hotkeys — the
+   keys are what you are looking for, the label is only there to sort them. */
+.help .hl {
+  font-size: 10px; font-weight: 600; letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.46);
+}
+.help .hg + .hg::before {
+  content: ''; display: inline-block; width: 1px; height: 11px;
+  background: rgba(255, 255, 255, 0.22);
+  margin: 0 10px; vertical-align: -1px;
+}
+
+/* The cheat-sheet spans nearly the whole viewport, and so does every right-rail
+   dashboard — so an open panel always swallowed the tail of the hint line. The
+   sheet is a starting aid and the panel is the task: while a dashboard is open
+   it steps aside. Pure :has() so neither panel's height or scroll geometry moves
+   (every rail probe measures those), and opacity keeps the element measurable. */
+#ui:has(.budget-panel:not(.hidden)) .help,
+#ui:has(.goals-panel:not(.hidden)) .help,
+#ui:has(.news-panel:not(.hidden)) .help,
+#ui:has(.map-panel:not(.hidden)) .help,
+#ui:has(.stocks-panel:not(.hidden)) .help,
+#ui:has(.shop-panel:not(.hidden)) .help {
+  opacity: 0;
+}
+
+/* ---------------- scrollbars ---------------- */
+.tools::-webkit-scrollbar { width: 6px; }
+.tools::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 3px; }
+.tools::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------------- economy chips / mute ---------------- */
+.chip-money {
+  background: rgba(69, 199, 118, 0.16);
+  border-color: rgba(69, 199, 118, 0.55);
+  color: #b8f5d0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  /* the treasury is the number read every few seconds — it leads the strip at one
+     notch more size and weight than anything in the census behind the rule */
+  font-size: 11.5px; font-weight: 600; padding: 3px 9px;
+}
+/* net income is a delta, so it takes the sign's colour instead of sitting in the
+   same grey as a count */
+.chip-income { font-size: 11px; font-weight: 600; padding: 3px 8px; }
+.chip-income.pos { color: var(--accent); border-color: rgba(69, 199, 118, 0.4); }
+.chip-income.neg { color: #f87171; border-color: rgba(248, 113, 113, 0.5); }
+/* wallet left of the rule, city census right of it */
+.chip-income.pos, .chip-income.neg { margin-right: 6px; position: relative; }
+.chip-income.pos::after, .chip-income.neg::after {
+  content: ''; position: absolute; top: 50%; right: -6px;
+  width: 1px; height: 12px; margin-top: -6px;
+  background: var(--hairline);
+}
+/* The five census figures are a bare number next to a 13px glyph — 142 and 113
+   each read as anything until you decode the icon. Stack the figure over a
+   micro-label so the strip explains itself without a hover; the tooltip carries
+   the full word. Money, income, AQI and Day are already self-describing. */
+.chip-stat { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; }
+.chip-stat .cstack { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.14; }
+.chip-stat .cv { font-size: 10.5px; font-weight: 500; color: var(--text); }
+.chip-stat .cl {
+  font-size: 7.5px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--muted); opacity: 0.7;
+}
+/* The labels cost ~40px the stats column does not have below 1250px — without
+   this the header wraps to a third row instead of staying two. */
+@media (max-width: 1250px) { .chip-stat .cl { display: none; } }
+/* Below 1150px the row genuinely stops fitting; take the slack back from the
+   scene pills rather than letting .stats wrap and doubling the header height. */
+@media (max-width: 1150px) {
+  .scene-pill { padding: 4px 7px; }
+  .scenes, .stats { gap: 3px; }
+}
+/* air-quality chip: green good / amber moderate / red unhealthy */
+.chip.aqi-ok {
+  border-color: rgba(110, 231, 168, 0.5);
+  color: #9ff0c6;
+  background: rgba(69, 199, 118, 0.13);
+}
+.chip.aqi-mid {
+  border-color: rgba(245, 196, 81, 0.55);
+  color: #ffd98a;
+  background: rgba(245, 196, 81, 0.14);
+}
+.chip.aqi-bad {
+  border-color: rgba(245, 113, 95, 0.6);
+  color: #ffb0a3;
+  background: rgba(239, 68, 68, 0.15);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+.btn-icon { padding: 4px 7px; font-size: 13px; }
+
+/* ---------------- selection panel ---------------- */
+.sel-panel {
+  position: absolute; bottom: 66px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  background: rgba(16, 18, 27, 0.97);
+  border: 1px solid rgba(69, 199, 118, 0.55);
+  padding: 12px 18px; border-radius: 11px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+  z-index: 12;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.sel-panel.hidden,
+#ui > .sel-panel.hidden {
+  opacity: 0; pointer-events: none;
+  transform: translateX(-50%) translateY(10px);
+}
+.sel-title { font-size: 13.5px; font-weight: 600; color: var(--accent); letter-spacing: 0.3px; }
+.sel-body { font-size: 12px; color: var(--muted); }
+.sel-body.hide { display: none; }
+.sel-btns { display: flex; gap: 7px; }
+.sel-hint { font-size: 11.5px; color: var(--muted); font-style: italic; }
+
+/* ---------------- budget panel ---------------- */
+.budget-panel {
+  position: absolute; top: 66px; right: 14px; width: 272px;
+  display: flex; flex-direction: column; gap: 8px;
+  background: rgba(16, 18, 27, 0.97);
+  border: 1px solid var(--panel-border);
+  border-radius: 11px; padding: 0 14px 0; /* .pn-head owns the top, .bud-stocks the bottom */
+  box-shadow: var(--shadow-deep);
+  z-index: 12;
+}
+.budget-panel.hidden { display: none; }
+.bud-title { font-size: 12px; font-weight: 600; letter-spacing: 0.9px; color: var(--accent); }
+/* The tax slider is the panel's only control; framed and tinted, it reads as
+   something you move rather than as one more row of the ledger. */
+.bud-tax {
+  display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted);
+  border: 1px solid var(--hairline); border-radius: 9px;
+  background: rgba(255, 255, 255, 0.045);
+  padding: 6px 9px;
+}
+/* the frame took ~18px off the label's room, so pin both text ends: the slider
+   is what flexes, never the words */
+.bud-tax > span { flex: 0 0 auto; white-space: nowrap; }
+.bud-tax input[type='range'] { flex: 1; min-width: 0; }
+.bud-tax-val { min-width: 40px; text-align: right; font-weight: 600; color: var(--text); }
+.bud-rows { display: flex; flex-direction: column; gap: 3px; padding-top: 2px; }
+/* labels sit a step above --muted: at 12px on a 64% white they went grey on a
+   grey ground, and the right-hand figures were the only thing you could read */
+.bud-row {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-size: 12px; color: rgba(233, 236, 242, 0.78);
+}
+.bud-row b { color: var(--accent); font-weight: 600; }
+.bud-row.neg b { color: #f87171; }
+/* a subtotal is a ruled line under a column of figures — solid, not a dashed
+   suggestion: --hairline at 7% white was invisible against the panel */
+.bud-row.bud-sub {
+  border-top: 1px solid rgba(255, 255, 255, 0.17);
+  margin-top: 5px; padding-top: 6px;
+}
+.bud-row.bud-sub span, .bud-row.bud-sub b { color: var(--text); font-weight: 600; }
+/* the headline number gets its own plate rather than passing for one more row */
+.bud-net {
+  display: flex; justify-content: space-between; align-items: center;
+  border: 1px solid var(--hairline); border-radius: 9px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.045);
+  font-size: 13px; font-weight: 600; color: var(--text);
+}
+.bud-net .up { color: var(--accent); font-size: 14px; }
+.bud-net .down { color: #f87171; font-size: 14px; }
+.top-actions .btn.on { border-color: rgba(69, 199, 118, 0.55); color: var(--accent); }
+
+/* ---------------- goals panel (milestones) ---------------- */
+.goals-panel {
+  position: absolute; top: 66px; right: 14px; width: 304px;
+  display: flex; flex-direction: column; gap: 8px;
+  background: rgba(16, 18, 27, 0.97);
+  border: 1px solid var(--panel-border);
+  border-radius: 11px; padding: 0 14px 12px; /* top handled by the pinned .pn-head */
+  box-shadow: var(--shadow-deep);
+  z-index: 13;
+}
+.goals-panel.hidden { display: none; }
+.goal-title { font-size: 12px; font-weight: 600; letter-spacing: 0.9px; color: var(--accent); }
+.goal-rows { display: flex; flex-direction: column; gap: 6px; max-height: 54vh; overflow-y: auto; }
+.goal-row {
+  display: flex; align-items: center; gap: 9px;
+  border: 1px solid var(--hairline); border-radius: 9px; padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.goal-row.done { border-color: rgba(69, 199, 118, 0.35); background: rgba(69, 199, 118, 0.07); }
+.goal-ic { font-size: 18px; line-height: 1; }
+.goal-txt { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.goal-label { font-size: 12px; font-weight: 600; color: var(--text); }
+.goal-row.done .goal-label { color: var(--accent); }
+.goal-prog { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.goal-reward { font-size: 12px; font-weight: 600; color: #e0c34a; white-space: nowrap; }
+.goal-row.done .goal-reward { color: var(--accent); }
+.goal-sum {
+  border-top: 1px dashed var(--hairline); padding-top: 6px;
+  font-size: 12px; font-weight: 600; color: var(--muted); text-align: center;
+}
+
+/* ---------------- newspaper panel (news) ---------------- */
+.news-panel {
+  position: absolute; top: 66px; right: 14px; width: 324px;
+  display: flex; flex-direction: column; gap: 8px;
+  background: rgba(16, 18, 27, 0.97);
+  border: 1px solid var(--panel-border);
+  border-radius: 11px; padding: 0 14px 12px; /* top handled by the pinned .pn-head */
+  box-shadow: var(--shadow-deep);
+  z-index: 13;
+}
+.news-panel.hidden { display: none; }
+.news-title { font-size: 12px; font-weight: 600; letter-spacing: 0.9px; color: var(--accent); }
+.news-rows { display: flex; flex-direction: column; gap: 6px; max-height: 54vh; overflow-y: auto; }
+.news-row {
+  display: flex; flex-direction: column; gap: 2px;
+  border: 1px solid var(--hairline); border-radius: 9px; padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.news-day { font-size: 11px; font-weight: 600; letter-spacing: 0.6px; color: var(--accent); opacity: 0.75; }
+.news-text { font-size: 12px; color: var(--text); line-height: 1.35; }
+.news-empty { font-size: 12px; color: var(--muted); font-style: italic; padding: 4px 2px; }
+
+/* ---------------- map archetype picker (map) ---------------- */
+.map-panel {
+  position: absolute; top: 66px; right: 14px; width: 324px;
+  display: flex; flex-direction: column; gap: 8px;
+  background: rgba(16, 18, 27, 0.97);
+  border: 1px solid var(--panel-border);
+  border-radius: 11px; padding: 0 14px 12px; /* top handled by the pinned .pn-head */
+  box-shadow: var(--shadow-deep);
+  z-index: 13;
+}
+.map-panel.hidden { display: none; }
+.map-title { font-size: 12px; font-weight: 600; letter-spacing: 0.9px; color: var(--accent); }
+.map-cards { display: flex; flex-direction: column; gap: 6px; max-height: 48vh; overflow-y: auto; }
+.map-card {
+  display: flex; align-items: center; gap: 9px;
+  font: inherit; text-align: left; cursor: pointer;
+  border: 1px solid var(--hairline); border-radius: 10px; padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03); color: var(--text);
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+.map-card:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.22); }
+.map-card.on {
+  border-color: var(--accent);
+  background: rgba(120, 160, 255, 0.14);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.map-ic { font-size: 20px; line-height: 1; }
+.map-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.map-name { font-size: 12.5px; font-weight: 600; letter-spacing: 0.3px; }
+.map-blurb { font-size: 11.5px; color: var(--muted); line-height: 1.3; }
+.map-lay { display: flex; }
+.map-lay > * { flex: 1; }
+
+/* ---------------- pause overlay ---------------- */
+.pause-overlay {
+  position: absolute; inset: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(6, 9, 16, 0.68);
+}
+.pause-overlay.hidden { display: none; }
+.pause-card {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  min-width: 300px;
+  background: rgba(17, 20, 30, 0.98);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px; padding: 24px 28px;
+  box-shadow: var(--shadow-deep);
+}
+.pause-title { font-size: 21px; font-weight: 700; letter-spacing: 0.5px; color: var(--text); }
+.pause-sub { font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
+.pause-btns { display: flex; flex-direction: column; gap: 8px; width: 220px; }
+.pause-btns .btn { width: 100%; text-align: center; justify-content: center; }
+.pause-hint { margin-top: 12px; font-size: 11.5px; color: var(--muted); font-style: italic; }
+
+/* ---------------- responsive ---------------- */
+@media (max-width: 1100px) {
+  .brand { display: none; }
+}
+@media (max-width: 820px) {
+  .tools { width: 186px; }
+  .scenes { display: none; }
+}
+
+/* ---------------- budget → shop / exchange / lessons entry ---------------- */
+/* Pinned to the panel floor so the three entry points stay reachable even when
+   the income / upkeep ledger is long enough to scroll. The Net/min plate lives
+   in here for exactly the same reason. It used to be a sibling sitting just
+   above this block, which meant the floor's own trigger condition — a ledger
+   long enough to scroll — was also the one condition that hid it: on a 640px
+   window the floor pinned over 433-552 while the headline sat at 510-549,
+   underneath. The ledger scrolls; the result does not. */
+.bud-stocks {
+  display: flex; flex-direction: column; gap: 5px;
+  border-top: 1px solid var(--hairline);
+  margin: 0 -14px; padding: 8px 14px 12px;
+  position: sticky; bottom: 0; z-index: 1;
+  background: linear-gradient(180deg, rgba(13, 15, 23, 0.97), rgba(12, 14, 22, 0.995));
+  box-shadow: 0 -12px 18px rgba(9, 11, 17, 0.55);
+}
+.bud-links { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.bud-links .btn { justify-content: center; text-align: center; font-size: 12.5px; padding: 9px 8px; }
+.bud-stk {
+  grid-column: 1 / -1;
+  border-color: rgba(69, 199, 118, 0.5); color: var(--accent);
+  background: rgba(69, 199, 118, 0.13);
+}
+.bud-links .bud-stk { font-size: 12.5px; font-weight: 600; }
+.bud-shop {
+  border-color: rgba(96, 165, 250, 0.5); color: #93c5fd;
+  background: rgba(96, 165, 250, 0.13);
+}
+.bud-help {
+  border-color: rgba(245, 196, 81, 0.45); color: #ffd98a;
+  background: rgba(245, 196, 81, 0.12);
+}
+.bud-stk-hint { font-size: 11px; color: var(--muted); text-align: center; line-height: 1.35; }
+
+.btn:disabled {
+  opacity: 0.38; cursor: not-allowed; transform: none;
+}
+.btn:disabled:hover {
+  border-color: var(--panel-border);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* ---------------- stock exchange panel ---------------- */
+.stocks-panel {
+  position: absolute; top: 66px; right: 14px; width: 376px;
+  display: flex; flex-direction: column; gap: 8px;
+  background: rgba(16, 18, 27, 0.97);
+  border: 1px solid rgba(69, 199, 118, 0.4);
+  border-radius: 11px; padding: 0 14px 12px; /* top handled by the pinned .pn-head */
+  box-shadow: var(--shadow-deep);
+  z-index: 14;
+  max-height: calc(100vh - 76px);
+  overflow-y: auto;
+}
+.stocks-panel.hidden { display: none; }
+.stocks-panel::-webkit-scrollbar,
+.stk-rows::-webkit-scrollbar,
+.sp-box::-webkit-scrollbar { width: 6px; }
+.stocks-panel::-webkit-scrollbar-thumb,
+.stk-rows::-webkit-scrollbar-thumb,
+.sp-box::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 3px; }
+.stocks-panel::-webkit-scrollbar-track,
+.stk-rows::-webkit-scrollbar-track,
+.sp-box::-webkit-scrollbar-track { background: transparent; }
+
+.stk-title { font-size: 12px; font-weight: 600; letter-spacing: 0.9px; color: var(--accent); }
+
+.stk-wallet { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.stk-stat {
+  display: flex; flex-direction: column; gap: 1px; text-align: center;
+  border: 1px solid var(--hairline); border-radius: 8px; padding: 5px 3px;
+  background: rgba(255, 255, 255, 0.035);
+}
+.stk-stat i {
+  font-style: normal; font-size: 11px; letter-spacing: 0.4px;
+  color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.stk-stat b { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stk-stat b.up { color: var(--accent); }
+.stk-stat b.down { color: #f87171; }
+
+.stk-qty { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.stk-qty-lbl { letter-spacing: 0.6px; font-weight: 600; }
+.stk-qval {
+  min-width: 30px; text-align: center; font-size: 12.5px; font-weight: 600;
+  color: var(--text); font-variant-numeric: tabular-nums;
+}
+.stk-step { padding: 3px 9px; font-size: 12.5px; line-height: 1; }
+.stk-learn { margin-left: auto; }
+
+.stk-rows {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 26vh; overflow-y: auto;
+  border-top: 1px solid var(--hairline); padding-top: 8px;
+}
+.stk-row {
+  display: grid; grid-template-columns: 22px 1fr auto auto;
+  gap: 7px; align-items: center;
+  border: 1px solid var(--hairline); border-radius: 10px;
+  padding: 7px 8px; background: rgba(255, 255, 255, 0.03);
+}
+.stk-row.owned {
+  border-color: rgba(69, 199, 118, 0.4);
+  background: rgba(69, 199, 118, 0.08);
+}
+.stk-ic { font-size: 18px; line-height: 1; text-align: center; }
+.stk-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+/* Name and tag line each own a line. Packed side by side in one flex row they
+   shared ~179px, so the name was the first thing to shrink — "Burger Barn"
+   broke across two lines while the tag beside it truncated mid-word. Primary
+   and secondary information now take the row's full width in turn: the tag
+   ellipsizes gracefully and the name never does. */
+.stk-nm {
+  font-size: 12px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.stk-meta {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.3px;
+  color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.stk-blurb {
+  font-size: 10px; color: var(--muted); line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.stk-own { font-size: 11px; color: #9fe0bd; font-weight: 500; }
+.stk-px { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.stk-px > b {
+  font-size: 12.5px; font-weight: 600; color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.stk-chg {
+  font-style: normal; font-size: 11px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.stk-chg.up { color: var(--accent); }
+.stk-chg.down { color: #f87171; }
+.stk-spark { display: flex; align-items: flex-end; gap: 1px; height: 15px; width: 62px; }
+.stk-spark i {
+  flex: 1; min-width: 1px; border-radius: 1px;
+  background: linear-gradient(180deg, rgba(69, 199, 118, 0.9), rgba(40, 165, 90, 0.25));
+}
+.stk-px.down .stk-spark i {
+  background: linear-gradient(180deg, rgba(248, 113, 113, 0.9), rgba(239, 68, 68, 0.25));
+}
+.stk-tr { display: flex; flex-direction: column; gap: 3px; }
+.stk-tr .btn { padding: 4px 7px; font-size: 11.5px; border-radius: 7px; min-width: 46px; }
+
+.stk-coach { display: flex; flex-direction: column; gap: 4px; }
+.stk-tip {
+  font-size: 12px; line-height: 1.4; padding: 7px 9px; border-radius: 9px;
+  border: 1px solid var(--hairline); background: rgba(255, 255, 255, 0.04);
+}
+.stk-tip.good { border-color: rgba(69, 199, 118, 0.45); background: rgba(69, 199, 118, 0.09); }
+.stk-tip.warn { border-color: rgba(245, 196, 81, 0.45); background: rgba(245, 196, 81, 0.09); }
+.stk-tip.info { border-color: rgba(96, 165, 250, 0.4); background: rgba(96, 165, 250, 0.08); }
+.stk-next { font-size: 11px; color: var(--muted); letter-spacing: 0.3px; }
+
+.stk-lessons { display: flex; flex-wrap: wrap; gap: 4px; }
+.stk-lesson {
+  font-size: 11px; padding: 4px 7px; border-radius: 999px;
+  border: 1px solid var(--hairline); color: var(--muted);
+  background: rgba(255, 255, 255, 0.04); white-space: nowrap;
+}
+.stk-lesson.done {
+  border-color: rgba(69, 199, 118, 0.55); color: var(--accent);
+  background: rgba(69, 199, 118, 0.14); font-weight: 600;
+}
+
+/* Same divider as INCOME/UPKEEP. It was 11.5px accent-green with a glyph — the
+   third dressing this one element had picked up, and none of them matched. */
+.stk-feed-title {
+  font-size: 11px; font-weight: 600; letter-spacing: 1.1px;
+  color: rgba(233, 236, 242, 0.84);
+  display: flex; align-items: center; gap: 8px;
+}
+.stk-feed-title::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.2), transparent);
+}
+.stk-feed { display: flex; flex-direction: column; gap: 5px; max-height: 22vh; overflow-y: auto; }
+.stk-feed-row {
+  display: flex; flex-direction: column; gap: 1px;
+  border: 1px solid var(--hairline); border-radius: 8px; padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.stk-fday { font-size: 11px; font-weight: 600; letter-spacing: 0.6px; color: var(--accent); opacity: 0.7; }
+.stk-ftxt { font-size: 11.5px; color: var(--text); line-height: 1.35; }
+.stk-empty { font-size: 11.5px; color: var(--muted); font-style: italic; }
+.stk-actions { display: flex; }
+.stk-actions > * { flex: 1; font-size: 11.5px; text-align: center; justify-content: center; }
+
+/* ---------------- educational splash ---------------- */
+/* The title screen: a full-bleed dark sheet, the city only a whisper behind it
+   — the card is the whole event, so nothing competes with it. */
+.splash {
+  position: absolute; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  background: rgba(5, 7, 13, 0.965);
+}
+/* Title-card mode: the HUD steps aside so the poster is city + card only.
+   opacity rather than display, so nothing reflows and every probe that counts
+   or measures those bars keeps seeing exactly what it did before. */
+#ui:has(> .splash:not(.hidden)) > *:not(.splash) {
+  opacity: 0;
+  pointer-events: none;
+}
+.splash.hidden { display: none; }
+.sp-box {
+  /* Wide, because the card now carries both halves side by side: the title on
+      the left, the guide on the right, and the eight ideas in a full-width row
+      underneath. Everything the splash has to say fits one screen. */
+  width: min(1340px, 96vw);
+  /* full-screen card: only the live chip and the caption strip keep a band */
+  max-height: calc(100vh - 108px);
+  overflow-y: auto;
+  background: rgba(19, 23, 33, 0.96);
+  border: 1px solid rgba(69, 199, 118, 0.34);
+  border-radius: 16px; padding: 26px 32px 22px;
+  box-shadow:
+    0 34px 74px -26px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Two columns: title block and guide, split by a hairline so neither half
+   drifts into the other. Below 900px they stack instead. */
+.sp-split {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 6px 24px;
+}
+
+.sp-eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: 1.4px; color: var(--muted); }
+.sp-title {
+  font-size: 23px; font-weight: 700; letter-spacing: 0.3px;
+  color: var(--accent);
+}
+.sp-lead { font-size: 12.5px; line-height: 1.5; color: var(--text); }
+.sp-lead b { color: var(--accent); }
+
+/* the eight ideas run the full width of the card in four even columns — no
+   ragged last row, which is what the old three-column grid left behind */
+.sp-grid {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px; margin-top: 14px;
+}
+.sp-card {
+  display: flex; gap: 8px; align-items: flex-start;
+  border: 1px solid var(--hairline); border-radius: 10px;
+  padding: 8px 9px; background: rgba(255, 255, 255, 0.035);
+}
+.sp-ic { font-size: 17px; line-height: 1.2; }
+.sp-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sp-txt b { font-size: 12px; font-weight: 600; color: var(--text); }
+.sp-txt i { font-size: 11.5px; font-style: normal; color: var(--muted); line-height: 1.38; }
+
+/* The instruction, as steps rather than one dense sentence: what to press,
+   in what order, and what to do once you are there. */
+.sp-how {
+  margin-top: 4px; font-size: 12px; line-height: 1.5; color: var(--muted);
+  border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0;
+  padding: 8px 10px; background: rgba(69, 199, 118, 0.07);
+}
+.sp-how > b { display: block; margin-bottom: 4px; color: var(--text); font-weight: 600; }
+.sp-how b { color: var(--text); }
+.sp-steps { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+.sp-goals {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+.sp-goals-t {
+  width: 100%; font-size: 11px; font-weight: 600;
+  letter-spacing: 1.1px; color: var(--accent);
+}
+.sp-goal {
+  font-size: 11.5px; padding: 4px 9px; border-radius: 999px;
+  border: 1px solid var(--hairline); color: var(--muted);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+/* Footer: both options plus the re-read note, ruled off from the content
+   above so the card ends on a deliberate edge rather than trailing away. */
+.sp-foot {
+  display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
+  margin-top: 14px; padding-top: 13px;
+  border-top: 1px solid var(--hairline);
+}
+.sp-go {
+  font-size: 13.5px; font-weight: 600; padding: 10px 24px; border-radius: 11px;
+  border-color: rgba(69, 199, 118, 0.6); color: var(--accent);
+  background: rgba(69, 199, 118, 0.16);
+}
+.sp-roll {
+  font-size: 12.5px; font-weight: 600; padding: 10px 18px; border-radius: 11px;
+}
+.sp-note { font-size: 11.5px; color: var(--muted); margin-left: auto; text-align: right; }
+.sp-note b { color: var(--text); }
+
+/* 📖 Learn reopens this same card, with the guide half marked as the target */
+.splash.sp-focus .sp-lessons {
+  outline: 1px solid rgba(69, 199, 118, 0.5);
+  outline-offset: 9px; border-radius: 10px;
+}
+
+
+/* =======================================================================
+   Unified right-rail dashboards — one header, one close button, one
+   scroll behaviour shared by budget, goals, news, map, exchange and shop
+   ======================================================================= */
+
+.budget-panel, .goals-panel, .news-panel, .map-panel, .stocks-panel, .shop-panel {
+  overflow-y: auto;
+}
+.budget-panel::-webkit-scrollbar,
+.goals-panel::-webkit-scrollbar,
+.news-panel::-webkit-scrollbar,
+.map-panel::-webkit-scrollbar,
+.shop-panel::-webkit-scrollbar { width: 6px; }
+.budget-panel::-webkit-scrollbar-thumb,
+.goals-panel::-webkit-scrollbar-thumb,
+.news-panel::-webkit-scrollbar-thumb,
+.map-panel::-webkit-scrollbar-thumb,
+.shop-panel::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 3px; }
+.budget-panel::-webkit-scrollbar-track,
+.goals-panel::-webkit-scrollbar-track,
+.news-panel::-webkit-scrollbar-track,
+.map-panel::-webkit-scrollbar-track,
+.shop-panel::-webkit-scrollbar-track { background: transparent; }
+
+/* panel header: title left, uniform close box right */
+.pn-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  /* the title and the ✕ stay put while the panel body scrolls underneath */
+  position: sticky; top: 0; z-index: 3;
+  margin: 0 -14px; padding: 12px 14px 7px;
+  background: var(--pn-head-bg);
+  /* brighter than --hairline: the header is the one thing that must read as a
+     fixed bar over a body that scrolls under it */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.13);
+  /* 8px band below the header: covers the panel's flex gap so rows can't slide through it */
+  box-shadow: 0 8px 0 var(--pn-head-bg);
+}
+.pn-x {
+  width: 22px; height: 22px; flex: 0 0 auto;
+  display: grid; place-items: center;
+  border: 1px solid var(--panel-border); border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05); color: var(--muted);
+  font-size: 12px; line-height: 1; cursor: pointer; transition: all 0.14s;
+}
+.pn-x:hover { border-color: #f87171; color: #f87171; background: rgba(248, 113, 113, 0.16); }
+
+/* section label with a trailing hairline, same as the tools rail. Brighter than
+   --muted and the rule starts brighter too: these two labels are what divide the
+   ledger into INCOME and UPKEEP, and at 7% white the divider did nothing. */
+.pn-lbl {
+  font-size: 11px; font-weight: 600; letter-spacing: 1.1px;
+  color: rgba(233, 236, 242, 0.84);
+  display: flex; align-items: center; gap: 8px; margin-top: -2px;
+}
+.pn-lbl::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.2), transparent);
+}
+
+/* =======================================================================
+   Tool rail: live price tag + affordability state
+   ======================================================================= */
+
+.tool-end { display: flex; align-items: center; gap: 6px; }
+.tool-cost {
+  font-style: normal; font-size: 11px; font-weight: 600; line-height: 1;
+  color: var(--accent); background: var(--accent-dim);
+  border: 1px solid rgba(69, 199, 118, 0.32);
+  border-radius: 5px; padding: 2px 5px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.tool-cost.cant {
+  color: #fca5a5; background: rgba(248, 113, 113, 0.14);
+  border-color: rgba(248, 113, 95, 0.42);
+}
+.tool-cost:empty { display: none; }
+.tool-btn.active .tool-cost { border-color: rgba(69, 199, 118, 0.55); }
+
+/* =======================================================================
+   Selection card: price / upkeep / owned strip + resell button
+   ======================================================================= */
+
+.sel-meta { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
+.sel-meta.hide { display: none; }
+.sel-meta span {
+  font-size: 11.5px; font-weight: 500; color: var(--muted);
+  border: 1px solid var(--hairline); background: rgba(255, 255, 255, 0.05);
+  border-radius: 999px; padding: 2px 8px; white-space: nowrap;
+}
+.sel-sell {
+  border-color: rgba(69, 199, 118, 0.55); color: var(--accent);
+  background: rgba(69, 199, 118, 0.14);
+}
+.sel-sell.hide { display: none; }
+
+/* =======================================================================
+   City shop — buy tab, sell tab, resell mode
+   ======================================================================= */
+
+.shop-panel {
+  position: absolute; top: 66px; right: 14px; width: 374px;
+  display: flex; flex-direction: column; gap: 8px;
+  background: rgba(16, 18, 27, 0.97);
+  border: 1px solid rgba(96, 165, 250, 0.38);
+  border-radius: 11px; padding: 0 14px 12px; /* top handled by the pinned .pn-head */
+  box-shadow: var(--shadow-deep);
+  z-index: 14;
+}
+.shop-panel.hidden { display: none; }
+.shop-title { font-size: 12px; font-weight: 600; letter-spacing: 0.9px; color: #93c5fd; }
+
+.shop-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.shop-tab {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--panel-border); color: var(--muted);
+  padding: 7px 10px; border-radius: 9px;
+  font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+}
+.shop-tab:hover { color: var(--text); border-color: rgba(255, 255, 255, 0.3); }
+.shop-tab.on {
+  color: #93c5fd; border-color: rgba(96, 165, 250, 0.6);
+  background: rgba(96, 165, 250, 0.15);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.shop-wallet { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.sh-stat {
+  display: flex; flex-direction: column; gap: 1px; text-align: center;
+  border: 1px solid var(--hairline); border-radius: 8px; padding: 5px 3px;
+  background: rgba(255, 255, 255, 0.035);
+}
+.sh-stat i {
+  font-style: normal; font-size: 11px; letter-spacing: 0.4px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sh-stat b { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* The border-top is gone: the label below now carries the divider, and keeping
+   both stacked a hairline over the label's own rule 10px apart. */
+.shop-list {
+  display: flex; flex-direction: column; gap: 6px;
+  padding-top: 8px;
+  max-height: 46vh; overflow-y: auto;
+}
+.shop-list::-webkit-scrollbar { width: 6px; }
+.shop-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 3px; }
+.shop-list::-webkit-scrollbar-track { background: transparent; }
+
+/* Same divider as the ledger's INCOME/UPKEEP. It was accent-green with a cart
+   glyph — the only section label in the app dressed differently, and it
+   out-shouted the panel title sitting directly above it. */
+.sh-lbl {
+  font-size: 11px; font-weight: 600; letter-spacing: 1.1px;
+  color: rgba(233, 236, 242, 0.84);
+  display: flex; align-items: center; gap: 8px; margin-top: 2px;
+}
+.sh-lbl::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.2), transparent);
+}
+.sh-row {
+  display: grid; grid-template-columns: 26px 1fr auto auto;
+  gap: 8px; align-items: center;
+  border: 1px solid var(--hairline); border-radius: 10px;
+  padding: 7px 8px; background: rgba(255, 255, 255, 0.03);
+  transition: border-color 0.15s, background 0.15s;
+}
+.sh-row:hover { border-color: rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.055); }
+.sh-ic { font-size: 18px; line-height: 1; text-align: center; }
+.sh-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sh-nm {
+  display: flex; align-items: baseline; gap: 5px; min-width: 0;
+  font-size: 12px; font-weight: 600; color: var(--text);
+}
+.sh-nm em {
+  font-style: normal; font-size: 11px; font-weight: 600; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sh-desc { font-size: 11px; color: var(--muted); line-height: 1.3; }
+.sh-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.sh-px {
+  font-size: 12.5px; font-weight: 600; color: var(--text);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.sh-px.poor { color: #f87171; }
+.sh-up { font-style: normal; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.sh-up.ok { color: #9fe0bd; }
+.sh-buy { padding: 4px 8px; font-size: 11.5px; border-radius: 7px; min-width: 50px; }
+
+.sh-callout {
+  font-size: 12px; line-height: 1.45; padding: 8px 10px; border-radius: 9px;
+  border: 1px solid rgba(96, 165, 250, 0.35); background: rgba(96, 165, 250, 0.09);
+  color: var(--text);
+}
+.sh-callout b { color: #93c5fd; }
+.sh-sellbar { display: flex; align-items: center; gap: 8px; }
+.sh-sellbar .btn { flex: 1; justify-content: center; text-align: center; }
+.sh-sellbar .btn.on {
+  border-color: rgba(248, 113, 113, 0.6); color: #fecaca;
+  background: rgba(248, 113, 113, 0.15);
+}
+.sh-state { font-size: 11px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.sh-state.on { color: var(--accent); }
+.sh-rows { display: flex; flex-direction: column; gap: 6px; }
+.sh-empty { font-size: 12px; color: var(--muted); font-style: italic; padding: 6px 2px; }
+.sh-tip {
+  font-size: 11.5px; line-height: 1.5; color: var(--muted);
+  border-top: 1px dashed var(--hairline); padding-top: 7px;
+}
+.sh-tip b { color: var(--text); }
+
+/* resell mode: the map itself invites a click */
+body.sell-mode #app { cursor: crosshair; }
+
+/* =======================================================================
+   Splash — one screen: title block, guide and the eight ideas together
+   ======================================================================= */
+
+/* ---------- cinematic HUD: chrome around the card, never over it ---------- */
+.sp-hud {
+  position: absolute; inset: 0; z-index: 1;
+  pointer-events: none; user-select: none;
+}
+.sp-live {
+  position: absolute; top: 12px; left: 22px;
+  display: flex; align-items: center; gap: 9px;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 1.1px;
+  color: rgba(255, 255, 255, 0.88);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+  /* scrim: the city underneath can be sand, snow or sunlit grass */
+  padding: 3px 11px; border-radius: 999px;
+  background: rgba(4, 6, 11, 0.44);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+.sp-live span { opacity: 0.72; }
+.sp-live b {
+  font-weight: 600; letter-spacing: 0.3px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.sp-live i {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #45c776;
+  animation: sp-blink 1.7s ease-in-out infinite;
+}
+@keyframes sp-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.sp-strip {
+  position: absolute; left: 20px; right: 20px; bottom: 12px;
+  display: flex; justify-content: center;
+}
+.sp-caps {
+  position: relative;
+  width: min(1080px, calc(100vw - 40px)); height: 26px;
+  overflow: hidden; text-align: center;
+  /* scrim: the strip sits straight on top of the city */
+  background: rgba(4, 6, 11, 0.44);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+.sp-caps > span {
+  position: absolute; inset: 0;
+  font-size: 12.5px; line-height: 26px; letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+  opacity: 0; transform: translateY(8px);
+  animation: sp-cap 24s linear infinite;
+}
+/* five captions, 4.8s apart — each is fully gone before the next fades in */
+@keyframes sp-cap {
+  0% { opacity: 0; transform: translateY(8px); }
+  3% { opacity: 1; transform: translateY(0); }
+  17% { opacity: 1; transform: translateY(0); }
+  19.5% { opacity: 0; transform: translateY(-8px); }
+  100% { opacity: 0; transform: translateY(8px); }
+}
+.sp-caps > span:nth-child(1) { animation-delay: 0s; }
+.sp-caps > span:nth-child(2) { animation-delay: 4.8s; }
+.sp-caps > span:nth-child(3) { animation-delay: 9.6s; }
+.sp-caps > span:nth-child(4) { animation-delay: 14.4s; }
+.sp-caps > span:nth-child(5) { animation-delay: 19.2s; }
+
+/* ---------- live world counters on the title card ---------- */
+.sp-stats {
+  display: flex; flex-wrap: wrap; gap: 6px 18px;
+  justify-content: center; font-size: 11.5px;
+  color: var(--muted);
+  padding: 7px 15px; border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.045);
+}
+.sp-stats b {
+  font-weight: 600; color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- entrance: transform-only, so a screenshot can never catch
+     half-faded text — everything is legible from the first frame ---------- */
+@keyframes sp-rise { from { transform: translateY(16px); } to { transform: translateY(0); } }
+.sp-hero > *:not(.sp-logo) { animation: sp-rise 0.42s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.sp-hero > *:nth-child(2) { animation-delay: 0.03s; }
+.sp-hero > *:nth-child(3) { animation-delay: 0.06s; }
+.sp-hero > *:nth-child(4) { animation-delay: 0.09s; }
+.sp-hero > *:nth-child(5) { animation-delay: 0.12s; }
+.sp-hero > *:nth-child(6) { animation-delay: 0.15s; }
+.sp-hero > *:nth-child(7) { animation-delay: 0.18s; }
+
+.sp-lessons > * { animation: sp-rise 0.4s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.sp-lessons > *:nth-child(2) { animation-delay: 0.04s; }
+.sp-lessons > *:nth-child(3) { animation-delay: 0.08s; }
+.sp-lessons > *:nth-child(4) { animation-delay: 0.12s; }
+.sp-lessons > *:nth-child(5) { animation-delay: 0.16s; }
+.sp-lessons > *:nth-child(6) { animation-delay: 0.2s; }
+.sp-lessons > *:nth-child(7) { animation-delay: 0.24s; }
+.sp-grid > .sp-card { animation: sp-rise 0.4s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.sp-grid > .sp-card:nth-child(2) { animation-delay: 0.05s; }
+.sp-grid > .sp-card:nth-child(3) { animation-delay: 0.1s; }
+.sp-grid > .sp-card:nth-child(4) { animation-delay: 0.15s; }
+.sp-grid > .sp-card:nth-child(5) { animation-delay: 0.2s; }
+.sp-grid > .sp-card:nth-child(6) { animation-delay: 0.25s; }
+.sp-grid > .sp-card:nth-child(7) { animation-delay: 0.3s; }
+.sp-grid > .sp-card:nth-child(8) { animation-delay: 0.35s; }
+
+/* Left half: the title block, centred, ruled off from the guide beside it.
+   The rule runs the full height of the row because the grid item stretches —
+   so both halves are always visually locked to each other. */
+.sp-hero {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  text-align: center; padding: 4px 20px 6px 4px;
+  border-right: 1px solid var(--hairline);
+}
+/* Right half: the guide, left-aligned and tight — a column of instructions
+   wants an edge to read down, not a centred one. */
+.sp-lessons {
+  display: flex; flex-direction: column; gap: 7px;
+  min-width: 0; padding: 2px 4px 6px 2px;
+}
+.sp-logo {
+  font-size: 46px; line-height: 1;
+}
+.sp-brand {
+  font-size: 36px; font-weight: 700; letter-spacing: 5.5px;
+  color: #f2f7f4;
+}
+.sp-tag { font-size: 12.5px; color: var(--muted); letter-spacing: 0.4px; }
+.sp-feats { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.sp-feat {
+  font-size: 12px; padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--hairline); background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+.sp-pitch {
+  max-width: 430px; font-size: 12.5px; line-height: 1.6; color: var(--muted);
+}
+.sp-pitch b { color: var(--accent); }
+
+/* ------------------------------------------------------------------
+   Splash breakpoints. These sit at the end of the sheet on purpose: they
+   override base rules above, so nothing earlier in source order can undo
+   them.
+   ------------------------------------------------------------------ */
+
+/* Too narrow for two columns: stack them, and halve the idea grid so cards
+   keep a readable width instead of squeezing to a stub. */
+@media (max-width: 900px) {
+  .sp-split { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .sp-hero { border-right: 0; border-bottom: 1px solid var(--hairline); padding: 4px 4px 12px; }
+  .sp-lessons { padding: 4px 4px 6px; }
+  .sp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* A window shorter than ~700px cannot hold the whole card at full size. The
+   answer is not to push options behind a scrollbar — it is to take the air
+   out: same copy, same eight ideas, same two options, tighter rhythm. This is
+   what keeps a 1000x640 window on one screen. */
+@media (max-height: 700px) {
+  .sp-box { max-height: calc(100vh - 76px); padding: 13px 20px 11px; }
+  .sp-live { top: 8px; }
+  .sp-strip { bottom: 8px; }
+  .sp-split { gap: 4px 20px; }
+  .sp-hero { gap: 5px; padding: 2px 18px 2px 2px; }
+  .sp-lessons { gap: 5px; padding: 2px 4px 2px 2px; }
+  .sp-logo { font-size: 32px; }
+  .sp-brand { font-size: 25px; letter-spacing: 3.5px; }
+  .sp-tag { font-size: 12px; }
+  .sp-feats { gap: 5px; }
+  .sp-feat { font-size: 11.5px; padding: 4px 8px; }
+  .sp-pitch { font-size: 12px; line-height: 1.5; }
+  .sp-stats { padding: 5px 12px; gap: 4px 14px; font-size: 11px; }
+  .sp-eyebrow { font-size: 11px; letter-spacing: 1.2px; }
+  .sp-title { font-size: 20px; }
+  .sp-lead { font-size: 12px; line-height: 1.42; }
+  .sp-how { font-size: 11.5px; line-height: 1.4; padding: 5px 9px; }
+  .sp-how > b { margin-bottom: 3px; }
+  .sp-steps { gap: 2px; }
+  .sp-goal { font-size: 11px; padding: 3px 8px; }
+  .sp-grid { margin-top: 9px; gap: 6px; }
+  .sp-card { padding: 7px 8px; gap: 7px; }
+  .sp-ic { font-size: 16px; }
+  .sp-txt b { font-size: 11.5px; }
+  .sp-txt i { font-size: 11px; line-height: 1.3; }
+  .sp-foot { margin-top: 9px; padding-top: 9px; gap: 9px; }
+  .sp-go { font-size: 13px; padding: 9px 20px; }
+  .sp-roll { font-size: 12px; padding: 9px 15px; }
+  .sp-note { font-size: 11px; }
+}
