@@ -32,6 +32,7 @@ export class InputManager {
   /** 'mouse' = right-click (tool cancel only), 'key' = Esc (idle → pause) */
   onCancel: ((src: 'mouse' | 'key') => void) | null = null;
   onPause: (() => void) | null = null;        // P — pause toggle
+  onPhoto: (() => void) | null = null;        // F — photo mode (hide the HUD)
   onNews: (() => void) | null = null;         // N — city newspaper
   onCutaway: (() => void) | null = null;      // X — underground cutaway
   onDigitPressed: ((n: number) => void) | null = null;
@@ -114,6 +115,7 @@ export class InputManager {
       case 'KeyH': this.onToggleHanging?.(); break;
       case 'KeyM': this.onMapSelect?.(); break;
       case 'KeyP': this.onPause?.(); break;
+      case 'KeyF': this.onPhoto?.(); break;
       case 'KeyN': this.onNews?.(); break;
       case 'KeyX': this.onCutaway?.(); break;
       case 'Escape': this.onCancel?.('key'); break;

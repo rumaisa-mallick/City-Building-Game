@@ -151,6 +151,9 @@ export class UISystem {
 
   // pause overlay + goals panel (meta layer)
   private pauseEl!: HTMLElement;
+  private volNum!: HTMLElement;
+  private photoCb!: HTMLInputElement;
+  private muteBtn: HTMLElement | null = null;
   private goalsPanel!: HTMLElement;
   private goalsBody!: HTMLElement;
   private goalBtn!: HTMLElement;
@@ -356,6 +359,7 @@ export class UISystem {
     muteBtn.classList.add('btn-icon');
     muteBtn.title = 'Toggle ambient sound';
     cluster.appendChild(muteBtn);
+    this.muteBtn = muteBtn;
 
     // HTML labels (icon + word) rather than text: these get swapped on click,
     // so they have to go back through innerHTML or the icon would vanish.
@@ -804,7 +808,7 @@ export class UISystem {
       '<b>Right-drag</b> orbit · <b>WASD</b> pan · <b>Scroll</b> zoom</span>' +
       '<span class="hg"><span class="hl">SYSTEM</span> ' +
       '<b>Ctrl+Z</b> undo · <b>Ctrl+S</b> save · <b>M</b> scene · <b>N</b> news · ' +
-      '<b>Esc/P</b> pause</span>';
+      '<b>F</b> photo · <b>Esc/P</b> pause</span>';
     this.root.appendChild(help);
 
     // ---------------- pause overlay ----------------
@@ -814,7 +818,18 @@ export class UISystem {
         <div class="pause-title">${ico('pause')} Paused</div>
         <div class="pause-sub">The city waits for you</div>
         <div class="pause-btns"></div>
-        <div class="pause-hint">Esc or P resumes</div>
+        <div class="pause-set">
+          <label class="pause-row">
+            <span>Volume</span>
+            <input type="range" min="0" max="100" class="pause-vol">
+            <b class="pause-volnum">100%</b>
+          </label>
+          <label class="pause-row">
+            <span>Photo mode</span>
+            <input type="checkbox" class="pause-photo">
+          </label>
+        </div>
+        <div class="pause-hint">Esc or P resumes · F toggles photo mode</div>
       </div>`;
     const pbtns = pause.querySelector('.pause-btns') as HTMLElement;
     pbtns.appendChild(this.btn(`${ico('play')} Resume`, () => this.togglePause()));
@@ -824,6 +839,22 @@ export class UISystem {
       this.newCity();
       if (this.engine.state === 'paused') this.engine.setState('playing');
     }));
+    // The slider drives the ambience master gain; dragging it while muted
+    // would be silent, so it unmutes and flips the top-bar icon in step.
+    const vol = pause.querySelector('.pause-vol') as HTMLInputElement;
+    this.volNum = pause.querySelector('.pause-volnum') as HTMLElement;
+    vol.value = String(Math.round(this.audio.volume * 100));
+    this.volNum.textContent = `${vol.value}%`;
+    vol.addEventListener('input', () => {
+      if (this.audio.muted) {
+        this.audio.setMuted(false);
+        if (this.muteBtn) this.muteBtn.innerHTML = ico('sound');
+      }
+      this.audio.setVolume(Number(vol.value) / 100);
+      this.volNum.textContent = `${vol.value}%`;
+    });
+    this.photoCb = pause.querySelector('.pause-photo') as HTMLInputElement;
+    this.photoCb.addEventListener('change', () => this.togglePhoto(this.photoCb.checked));
     this.root.appendChild(pause);
     this.pauseEl = pause;
 
@@ -951,6 +982,16 @@ export class UISystem {
   togglePause(): void {
     if (this.engine.state === 'playing') this.engine.setState('paused');
     else if (this.engine.state === 'paused') this.engine.setState('playing');
+  }
+
+  /** Photo mode: every piece of chrome steps aside for a clean shot of the
+   *  city. F toggles it; the pause overlay stays visible — that plus F is
+   *  always the way back out. */
+  togglePhoto(on?: boolean): void {
+    const photo = on ?? !this.root.classList.contains('photo');
+    this.root.classList.toggle('photo', photo);
+    this.photoCb.checked = photo;
+    if (photo) this.toast('📷 Photo mode — F or Esc brings the menu back');
   }
 
   saveGame(): void {

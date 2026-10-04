@@ -70,6 +70,7 @@ function main(): void {
   input.onUndo = () => city.undo();
   input.onMapSelect = () => sceneSystem.cycle();
   input.onPause = () => ui.togglePause();
+  input.onPhoto = () => ui.togglePhoto();
   input.onNews = () => ui.toggleNews();
   input.onCutaway = () => ui.toggleCutaway();
   input.onSave = () => {

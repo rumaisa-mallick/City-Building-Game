@@ -4,6 +4,7 @@ import type { CitySystem } from './CitySystem';
 import type { WeatherSystem } from './WeatherSystem';
 
 const MUTE_KEY = 'city-builder-muted';
+const VOL_KEY = 'city-builder-volume';
 const MASTER = 0.55;
 
 /**
@@ -14,6 +15,8 @@ const MASTER = 0.55;
  */
 export class AudioSystem {
   muted = false;
+  /** user volume 0..1, scaled onto the fixed master gain */
+  volume = 1;
 
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
@@ -39,6 +42,10 @@ export class AudioSystem {
     this.city = city;
     this.weather = weather;
     try { this.muted = localStorage.getItem(MUTE_KEY) === '1'; } catch { /* private mode */ }
+    try {
+      const v = parseFloat(localStorage.getItem(VOL_KEY) ?? '');
+      if (!isNaN(v)) this.volume = Math.min(1, Math.max(0, v));
+    } catch { /* private mode */ }
     window.addEventListener('pointerdown', () => this.start());
     window.addEventListener('keydown', () => this.start());
   }
@@ -58,7 +65,7 @@ export class AudioSystem {
     void ctx.resume?.().catch(() => void 0);
 
     this.master = ctx.createGain();
-    this.master.gain.value = this.muted ? 0 : MASTER;
+    this.master.gain.value = this.outGain();
     this.master.connect(ctx.destination);
 
     // shared white-noise buffer
@@ -108,8 +115,21 @@ export class AudioSystem {
     this.muted = m;
     try { localStorage.setItem(MUTE_KEY, m ? '1' : '0'); } catch { /* ignore */ }
     if (this.master && this.ctx) {
-      this.master.gain.setTargetAtTime(m ? 0 : MASTER, this.ctx.currentTime, 0.06);
+      this.master.gain.setTargetAtTime(this.outGain(), this.ctx.currentTime, 0.06);
     }
+  }
+
+  setVolume(v: number): void {
+    this.volume = Math.min(1, Math.max(0, v));
+    try { localStorage.setItem(VOL_KEY, String(this.volume)); } catch { /* ignore */ }
+    if (this.master && this.ctx) {
+      this.master.gain.setTargetAtTime(this.outGain(), this.ctx.currentTime, 0.06);
+    }
+  }
+
+  /** what the master gain should be right now: mute wins, then the slider */
+  private outGain(): number {
+    return this.muted ? 0 : MASTER * this.volume;
   }
 
   // ---- one-shots -------------------------------------------------------

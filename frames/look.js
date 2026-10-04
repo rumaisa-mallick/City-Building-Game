@@ -109,6 +109,18 @@ const shots = [];
     await shoot('04_selection');
   }
 
+  // menus: the pause card with its settings rows, then photo mode on its own
+  await ev(() => window.game.ui.togglePause());
+  await waitFrames(3);
+  await shoot('05_pause');
+  await ev(() => window.game.ui.togglePause());
+  await waitFrames(2);
+  await ev(() => window.game.ui.togglePhoto());
+  await waitFrames(2);
+  await shoot('06_photo');
+  await ev(() => window.game.ui.togglePhoto(false));
+  await waitFrames(2);
+
   console.log('PAGE ERRORS ' + errs.length + ' ' + JSON.stringify(errs.slice(0, 4)));
   console.log('---');
   console.log('LOOK SHOTS ' + shots.length + ': ' + shots.join(' '));
