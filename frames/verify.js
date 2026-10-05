@@ -258,6 +258,13 @@ const check = (label, ok, detail) => {
     Math.abs(t3.x - t2.x) < 0.1 && Math.abs(t3.z - t2.z) < 0.1,
     (t3.x - t2.x).toFixed(2));
 
+  // focus loss must not leave keys held: no keyup ever arrives after a blur
+  await page.keyboard.down('w');
+  await ev(() => window.dispatchEvent(new Event('blur')));
+  const stuck = await ev(() => window.game.input.keys.size);
+  check('blur clears held keys', stuck === 0, stuck);
+  await page.keyboard.up('w');
+
   check('no page errors', errs.length === 0, JSON.stringify(errs.slice(0, 4)));
   check('no external requests', ext.length === 0, JSON.stringify(ext.slice(0, 4)));
 

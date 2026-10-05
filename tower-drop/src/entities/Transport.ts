@@ -12,7 +12,6 @@ export type StreetKind = 'parking' | 'bike';
  * blocks and bike corridors interleave across the grid.
  */
 export function streetKind(axis: 'x' | 'z', k: number): StreetKind {
-  void axis;
   return k === 1 || k === 3 || k === 4 ? 'bike' : 'parking';
 }
 

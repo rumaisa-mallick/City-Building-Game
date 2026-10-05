@@ -86,7 +86,7 @@ export class CameraSystem {
     }
 
     if (pan.lengthSq() > 0) {
-      const speed = (fromKeys || edgeStrength === 0 ? 1 : edgeStrength) * this.panSpeed;
+      const speed = (fromKeys ? 1 : edgeStrength) * this.panSpeed;
       pan.normalize().multiplyScalar(speed * dt);
       // convert pan to camera-relative
       const forward = new THREE.Vector3();
@@ -120,9 +120,7 @@ export class CameraSystem {
 
     const lerpFactor = 1 - Math.exp(-this.smooth * dt);
     this.camera.position.lerp(this.desired, lerpFactor);
-    const lookTarget = new THREE.Vector3().copy(this.camera.position).lerp(this.desiredTarget, 0);
     this.camera.lookAt(this.desiredTarget);
-    void lookTarget;
   }
 
   /** Snap camera to focus on tower height */

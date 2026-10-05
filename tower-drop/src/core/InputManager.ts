@@ -124,10 +124,15 @@ export class InputManager {
         !onControl && (el === this.target || !!el.closest('.hud-top, .help'));
     });
 
-    // leaving the window freezes the pointer at the edge it exited through —
-    // without clearing the gate the camera would drift on its own
+    // leaving the window freezes the pointer at the edge it exited through, and
+    // no keyup/pointerup ever arrives — without clearing both the edge gate and
+    // the held state the camera would keep drifting on its own
     window.addEventListener('blur', () => {
       this.edgeActive = false;
+      this.keys.clear();
+      this.keysPressed.clear();
+      this.mouseButtons.clear();
+      this.rotating = false;
     });
     document.documentElement.addEventListener('mouseleave', () => {
       this.edgeActive = false;
@@ -168,10 +173,10 @@ export class InputManager {
 
     // Project onto the placement plane
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    this.graycastGround();
+    this.raycastGround();
   }
 
-  private graycastGround(): void {
+  private raycastGround(): void {
     const hit = this.raycaster.ray.intersectPlane(this.groundPlane, this.mouseWorld);
     if (!hit) {
       // fallback: project at a fixed distance

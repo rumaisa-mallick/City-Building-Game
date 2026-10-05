@@ -48,7 +48,6 @@ function box(w: number, h: number, d: number, mat: THREE.Material, x = 0, y = 0,
 
 export function createFireStation(): THREE.Group {
   const g = new THREE.Group();
-  const r = makeRng(501);
 
   const brick = new THREE.MeshStandardMaterial({ color: '#a8453a', roughness: 0.92 });
   const trim = new THREE.MeshStandardMaterial({ color: '#eceae4', roughness: 0.8 });
@@ -129,7 +128,6 @@ export function createFireStation(): THREE.Group {
   beacon.position.set(-1.5, 8.7, 2.4);
   g.add(beacon);
 
-  void r;
   tag(g, 'firestation');
   return g;
 }

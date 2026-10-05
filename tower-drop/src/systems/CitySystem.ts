@@ -688,44 +688,7 @@ export class CitySystem {
   private buildLots(): void {
     this.lots = [];
     let index = 0;
-    const r = this.rng;
     const park = this.parkBlock;
-
-    const addRow = (
-      horizontal: boolean,
-      edgeMin: number,
-      fixed: number,
-      spanMin: number,
-      spanMax: number,
-      rotY: number
-    ): void => {
-      let pos = spanMin;
-      while (spanMax - pos >= 7) {
-        const w = Math.min([8, 10, 12][Math.floor(r() * 3)], spanMax - pos - 0.5);
-        const d = [9, 11, 12][Math.floor(r() * 3)];
-        const gap = 0.6;
-        if (horizontal) {
-          // building sits with depth going inward from `fixed` line
-          const inward = rotY === 0 ? 1 : -1; // rot 0 = faces +z (south edge), depth inward -z... handled below
-          void inward;
-          this.lots.push({
-            index: index++,
-            cx: pos + w / 2,
-            cz: fixed,
-            w, d, rotY, occupied: false,
-          });
-        } else {
-          this.lots.push({
-            index: index++,
-            cx: fixed,
-            cz: pos + w / 2,
-            w: d, d: w, rotY, occupied: false,
-          });
-        }
-        pos += w + gap;
-      }
-      void edgeMin;
-    };
 
     for (let i = 0; i < GRID; i++) {
       for (let j = 0; j < GRID; j++) {
@@ -733,7 +696,6 @@ export class CitySystem {
 
         const bx = blockOrigin(i);
         const bz = blockOrigin(j);
-        const zMin = bx === 0 ? 0 : 0; void zMin;
         const zoneMinX = bx + SW;
         const zoneMaxX = bx + BLOCK - SW;
         const zoneMinZ = bz + SW;
@@ -774,7 +736,6 @@ export class CitySystem {
         }
       }
     }
-    void addRow;
   }
 
   /** Fill the city with default buildings, nature, people, traffic */
